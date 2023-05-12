@@ -352,7 +352,7 @@
 				15,
 				14
 			],
-			"name":"Armature.001",
+			"name":"tentaculeAAnimer",
 			"rotation":[
 				0.6334525346755981,
 				-0.06882481276988983,
@@ -838,7 +838,7 @@
 				2,
 				1
 			],
-			"name":"Armature.001"
+			"name":"tentaculeAAnimer"
 		}
 	],
 	"accessors":[

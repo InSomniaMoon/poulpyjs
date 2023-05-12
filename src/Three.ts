@@ -1,4 +1,4 @@
-import { ACESFilmicToneMapping, AnimationAction, AnimationClip, AnimationMixer, AxesHelper, BoxHelper, EquirectangularReflectionMapping, Event, Object3D, PerspectiveCamera, Scene, Vector3, VectorKeyframeTrack, WebGLRenderer, sRGBEncoding } from "three";
+import { ACESFilmicToneMapping, AxesHelper, Bone, Box3, Box3Helper, BoxGeometry, Color, EquirectangularReflectionMapping, Event, EventDispatcher, Material, Mesh, MeshBasicMaterial, Object3D, PerspectiveCamera, Quaternion, Scene, SkeletonHelper, SkinnedMesh, Vector3, WebGLRenderer, sRGBEncoding } from "three";
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader';
@@ -6,9 +6,8 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader';
 let camera: PerspectiveCamera;
 let scene: Scene;
 let renderer: WebGLRenderer;
-let bones: Object3D<Event>[] = [];
-
-let arms: Object3D<Event>[][] = [];
+let tentacules: Map<Object3D, Bone[]> = new Map();
+let poulpe: Object3D = new Object3D();
 
 init();
 animate();
@@ -33,23 +32,37 @@ function init() {
 
   new RGBELoader()
     .setPath('/assets/textures/')
+    // .load('water_drop.hdr', (texture) => {
     .load('venice_sunset_1k.hdr', (texture) => {
-
       let loader = new GLTFLoader().setPath('/assets/models/')
+
+      let color = new Color()
+      color.setHex(0x00ff00 * Math.random())
+      let geometry = new BoxGeometry(.3, .3, .3);
+      let material = new MeshBasicMaterial({ color: color });
+      let cube = new Mesh(geometry, material);
+      cube.name = "cube";
+      cube.position.set(0, 3, 0)
+      cube.geometry.computeBoundingBox();
+      scene.add(cube);
 
       loader.load("corps.gltf", (gltf) => {
         gltf.scene.scale.set(.1, .1, .1);
         gltf.scene.position.set(0, 0, 0)
         gltf.scene.name = "corps";
-        scene.add(gltf.scene);
+        poulpe.add(gltf.scene);
+
+        scene.add(poulpe);
       })
 
       for (let i = 0; i < 8; i++) {
         let j = i + 1
         let tenta = new Object3D();
         loader.load("tentacule.gltf", (gltf) => {
+          console.log(gltf.scene.children.map(el => el.name).reduce((acc, el) => acc + " " + el));
 
-          tenta = gltf.scene.children[1]
+          tenta = gltf.scene.getObjectByName("tentaculeAAnimer")
+
           tenta.position.set(0, 0, 0)
           tenta.rotation.set(0, 0, 0)
           tenta.scale.set(.1, .1, .1);
@@ -58,10 +71,6 @@ function init() {
 
           // debug
           // tenta.add(new AxesHelper(50))
-
-          scene.add(tenta)
-          console.log(tenta.name, tenta);
-          arms.push(extract(tenta.children[1]))
 
           if (j == 1) {
             tenta.translateOnAxis(new Vector3(.5, 0, -1.65), 1)
@@ -112,33 +121,27 @@ function init() {
             tenta.rotateX(0)
             tenta.rotateY(Math.PI * -3 / 12)
             tenta.rotateZ(Math.PI)
+            // poulpe.add(new Box3Helper(new Box3().setFromObject(poulpe, true), 0xffff00))
           }
+          const mesh = tenta.children[0] as SkinnedMesh;
 
-          render()
-          console.log(arms);
+          mesh.skeleton.bones.forEach(bone => {
+            // stocker les boxes
 
+            // scene.add(new Box3Helper(new Box3().setFromObject(bone, true), 0xffff00));
+          })
+          mesh.geometry.computeBoundingBox();
+
+          // scene.add(new Box3Helper(new Box3().setFromObject(tenta, true), 0xffff00));
+
+
+          tentacules.set(tenta, mesh.skeleton.bones)
+          poulpe.add(tenta);
+          console.log(tentacules);
+
+          render();
         })
-
-
-
       }
-
-
-
-      // loader.load("arm.gltf", (gltf) => {
-
-      //   gltf.scene.scale.set(0.1, 0.1, 0.1);
-      //   scene.add(gltf.scene)
-
-      //   let obj = scene.getObjectByName("Bone")
-      //   if (obj != undefined) {
-      //     bones = bones.concat(extract(obj));
-      //   }
-
-      //   console.log(bones);
-      //   console.log(bones.map(bone => bone.name).reduce((acc, cur) => acc + " " + cur, ""));
-
-      // });
 
       texture.mapping = EquirectangularReflectionMapping;
 
@@ -146,16 +149,6 @@ function init() {
       scene.environment = texture;
 
       render();
-      // definition du material pour les mesh
-      // const material = new MeshNormalMaterial({ transparent: true, opacity: 0.5, side: 0 });
-      // let cube = new Cube(material);
-
-      // let cube1 = cube.methode1
-      // let cube2 = cube.methode2
-
-      // cube1.translateX(2).translateY(.5); // on decale le cube pour le distinguer du premier
-      // scene.add(cube1); // on ajoute le 1e cube à la scene 
-      // scene.add(cube2); // on ajoute le 2e cube à la scene
 
     });
 
@@ -198,19 +191,50 @@ function render() {
 
 }
 
+//rapidité de move
+let coefDate = 0.0006
+let coefRotation = 0.0008
+
 function animate() {
-
+  // poulpe.applyQuaternion(new Quaternion().setFromAxisAngle(new Vector3(.5, 1, 0), Math.PI / 90));
   requestAnimationFrame(animate);
-  arms.forEach(arm => {
+  Array.from(tentacules).forEach((el) => {
+    const tentacule = el[0];
+    const bones = el[1];
+    bones[0];
 
-    arm.forEach((bone, i) => {
+    // box.intersects(box2) ==> true si box et box2 se touchent
+
+
+    (tentacule.children[0] as SkinnedMesh).geometry.computeBoundingBox();
+
+
+
+    bones.forEach((bone, i) => {
+      let cube = scene.getObjectByName("cube");
+
+      // verifie la collision avec le cube
+      let box = new Box3().setFromObject(cube, true);
+      let box2 = new Box3().setFromObject(poulpe, true);
+      if (!box.intersectsBox(box2)) {
+        cube.position.x += Math.sin(Date.now() * coefDate) * coefRotation * Math.random();
+        cube.position.y += Math.cos(-Date.now() * coefDate) * coefRotation * Math.random();
+      }
+      else {
+        cube.position.y = 3;
+      }
+
+
+
       if (i % 3 == 0)
-        bone.rotation.x += Math.sin(-Date.now() * 0.0006 ) * 0.0004 * Math.random();
+        bone.rotation.x += Math.sin(-Date.now() * coefDate) * coefRotation * Math.random();
       else
-        bone.rotation.x += Math.cos(Date.now() * 0.0006 ) * 0.0004 * Math.random();
+        bone.rotation.x += Math.cos(Date.now() * coefDate) * coefRotation * Math.random();
 
-      bone.rotation.z += Math.cos(-Date.now() * 0.0006 ) * 0.0004 * Math.random();
+      bone.rotation.z += Math.cos(-Date.now() * coefDate) * coefRotation * Math.random();
+
     })
+
   })
 
   renderer.render(scene, camera);
