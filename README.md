@@ -22,4 +22,9 @@ By Pierre Leroyer
 - créer le fichier `tsconfig.json` à la racine du projet
 - créer le fichier `vite.config.ts` à la racine du projet
 - mettre en place le boiler plate dans le fichier `index.ts`
-- 
+
+## Lancer le projet
+
+- Si premiere utilisation lancer la commande `npm install`
+- Lancer la commande `npm run dev`
+- Enjoy !
